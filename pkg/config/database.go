@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -10,17 +11,11 @@ import (
 	// _ needed to mysql
 	_ "github.com/go-sql-driver/mysql"
 
-	// needed to posgress
-
-	_ "github.com/lib/pq"
-
 	"github.com/go-xorm/core"
 	"github.com/go-xorm/xorm"
 
 	// _ needed to sqlite3
 	_ "github.com/mattn/go-sqlite3"
-
-	"github.com/toni-moreno/snmpcollector/pkg/data/utils"
 )
 
 func (dbc *DatabaseCfg) resetChanges() {
@@ -43,7 +38,7 @@ type DbObjAction struct {
 }
 
 //InitDB initialize de BD configuration
-func (dbc *DatabaseCfg) InitDB() error {
+func (dbc *DatabaseCfg) InitDB(cfg *GeneralConfig) {
 	// Create ORM engine and database
 	var err error
 	var dbtype string
@@ -55,26 +50,6 @@ func (dbc *DatabaseCfg) InitDB() error {
 	case "sqlite3":
 		dbtype = "sqlite3"
 		datasource = dataDir + "/" + dbc.Name + ".db"
-
-	case "postgres", "postgresql":
-		dbtype = "postgres"
-		addr, err := utils.SplitHostPortDefault(dbc.Host, "127.0.0.1", "5432")
-		if err != nil {
-			log.Errorf("Invalid host specifier '%s': Err: %s", dbc.Host, err)
-			return err
-		}
-
-		if dbc.Password == "" {
-			dbc.Password = "''"
-		}
-		if dbc.User == "" {
-			dbc.User = "''"
-		}
-		if dbc.SslMode == "" {
-			dbc.SslMode = "disable"
-		}
-		datasource = fmt.Sprintf("user=%s password=%s host=%s port=%s dbname=%s sslmode=%s sslcert=%s sslkey=%s sslrootcert=%s", dbc.User, dbc.Password, addr.Host, addr.Port, dbc.Name, dbc.SslMode, dbc.ClientCertPath, dbc.ClientKeyPath, dbc.CaCertPath)
-
 	case "mysql":
 		dbtype = "mysql"
 		protocol := "tcp"
@@ -85,7 +60,7 @@ func (dbc *DatabaseCfg) InitDB() error {
 		//datasource = dbc.User + ":" + dbc.Pass + "@" + dbc.Host + "/" + dbc.Name + "?charset=utf8"
 	default:
 		log.Errorf("unknown db  type %s", dbc.Type)
-		return nil
+		return
 	}
 
 	dbc.x, err = xorm.NewEngine(dbtype, datasource)
@@ -159,7 +134,51 @@ func (dbc *DatabaseCfg) InitDB() error {
 	if err = dbc.x.Sync(new(OidConditionCfg)); err != nil {
 		log.Fatalf("Fail to sync database OidConditionCfg: %v\n", err)
 	}
-	return nil
+	if err = dbc.x.Sync(new(PollerLocationCfg)); err != nil {
+		log.Fatalf("Fail to sync database PollerLocationCfg: %v\n", err)
+	}
+
+	//Look if PollerLocation is empty
+	var exist bool
+	exist, err = dbc.x.Get(new(PollerLocationCfg))
+	if exist == false {
+		//Create default Location
+
+		//Get Hostname
+		hostname, err := os.Hostname()
+		if err != nil {
+			hostname = cfg.InstanceID
+		}
+		//Get external IP
+		ip := getExternalIp()
+
+		//Get Location or assign InstanceID
+		loc := cfg.Location
+		if len(loc) == 0 {
+			loc = cfg.InstanceID
+		}
+
+		var location = PollerLocationCfg{
+			ID:          hostname,
+			Location:    loc,
+			Instance_ID: cfg.InstanceID,
+			Active:      true,
+			Hostname:    hostname,
+			IP:          ip.String(),
+			Description: cfg.Description,
+		}
+
+		var affected int64
+		session := dbc.x.NewSession()
+		defer session.Close()
+		affected, err = session.Insert(&location)
+		if err != nil {
+			log.Fatalf("There were an error when creating default PollerLocationCfg Error: %+v", err)
+			session.Rollback()
+		} else {
+			log.Infof("PollerLocationCfg created succefully. %+v", affected)
+		}
+	}
 }
 
 // CatalogVar2Map return interface map from variable table
@@ -189,7 +208,7 @@ func CatalogVar2Map(cv map[string]*VarCatalogCfg) map[string]interface{} {
 }
 
 //LoadDbConfig get data from database
-func (dbc *DatabaseCfg) LoadDbConfig(cfg *DBConfig) {
+func (dbc *DatabaseCfg) LoadDbConfig(cfg *DBConfig, Location string) {
 	var err error
 	//Load Global Variables
 	VarCatalog := make(map[string]*VarCatalogCfg)
@@ -232,10 +251,23 @@ func (dbc *DatabaseCfg) LoadDbConfig(cfg *DBConfig) {
 	}
 
 	//Device
-
-	cfg.SnmpDevice, err = dbc.GetSnmpDeviceCfgMap("")
+	//Parameters inside GetSnmpDeviceCfgMap are filter to get devices. All devices who match with location will be returned
+	cfg.SnmpDevice, err = dbc.GetSnmpDeviceCfgMap("location = '" + Location + "'")
 	if err != nil {
 		log.Warningf("Some errors on get SnmpDeviceConf :%v", err)
 	}
 	dbc.resetChanges()
+}
+
+//Utils
+func getExternalIp() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP
 }

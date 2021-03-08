@@ -228,10 +228,6 @@
             <select formControlName="V3AuthProt" id="V3AuthProt" [ngModel]="snmpdevForm.value.V3AuthProt">
               <option value="MD5">MD5</option>
               <option value="SHA">SHA</option>
-              <option value="SHA224">SHA224</option>
-              <option value="SHA256">SHA256</option>
-              <option value="SHA384">SHA384</option>
-              <option value="SHA512">SHA512</option>
             </select>
             <control-messages [control]="snmpdevForm.controls.V3AuthProt"></control-messages>
           </div>
@@ -252,12 +248,8 @@
           <i placement="top" style="float: left" class="info control-label glyphicon glyphicon-info-sign" tooltipAnimation="true" tooltip="Privacy Protocol"></i>
           <div class="col-sm-9">
             <select formControlName="V3PrivProt" id="V3PrivProt" [ngModel]="snmpdevForm.value.V3PrivProt">
-              <option value="DES">DES</option>
               <option value="AES">AES</option>
-              <option value="AES192">AES192</option>
-              <option value="AES256">AES256</option>
-              <option value="AES192C">AES192C</option>
-              <option value="AES256C">AES256C</option>
+              <option value="DES">DES</option>
             </select>
             <control-messages [control]="snmpdevForm.controls.V3PrivProt"></control-messages>
           </div>
@@ -309,6 +301,16 @@
             <option value="false">False</option>
           </select>
           <control-messages [control]="snmpdevForm.controls.ConcurrentGather"></control-messages>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="control-label col-sm-2" for="Location">Location</label>
+        <i placement="top" style="float: left" class="info control-label glyphicon glyphicon-info-sign" tooltipAnimation="true" tooltip="Select the location (SNMP instance) where the device will be served"></i>
+        <div class="col-sm-9">
+          <div>
+            <ss-multiselect-dropdown [options]="selectpollerlocations" [texts]="myTexts" [settings]="mySettingsInflux" [(ngModel)]="snmpdevForm.value.Location" [ngModelOptions]="{standalone: true}" (ngModelChange)="onChangevarsArray($event,test)"></ss-multiselect-dropdown>
+            <control-messages [control]="snmpdevForm.controls.Location"></control-messages>
+          </div>
         </div>
       </div>
     </div>

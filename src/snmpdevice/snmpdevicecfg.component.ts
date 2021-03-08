@@ -1,5 +1,5 @@
-import { Component, ChangeDetectionStrategy, ViewChild,ViewContainerRef } from '@angular/core';
-import { FormBuilder, Validators} from '@angular/forms';
+import { Component, ChangeDetectionStrategy, ViewChild, ViewContainerRef } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
 import { IMultiSelectOption, IMultiSelectSettings, IMultiSelectTexts } from '../common/multiselect-dropdown';
 import { SnmpDeviceService } from '../snmpdevice/snmpdevicecfg.service';
 import { InfluxServerService } from '../influxserver/influxservercfg.service';
@@ -7,8 +7,9 @@ import { MeasGroupService } from '../measgroup/measgroupcfg.service';
 import { MeasFilterService } from '../measfilter/measfiltercfg.service';
 import { VarCatalogService } from '../varcatalog/varcatalogcfg.service';
 import { ValidationService } from '../common/validation.service';
+import { PollerLocationService } from '../pollerlocations/pollerlocations.service';
 import { Observable } from 'rxjs/Rx';
-import { FormArray, FormGroup, FormControl} from '@angular/forms';
+import { FormArray, FormGroup, FormControl } from '@angular/forms';
 import { BlockUIService } from '../common/blockui/blockui-service';
 import { BlockUIComponent } from '../common/blockui/blockui-component';
 
@@ -26,11 +27,11 @@ import { SpinnerComponent } from '../common/spinner';
 import { TableListComponent } from '../common/table-list.component';
 import { SnmpDeviceCfgComponentConfig, TableRole, OverrideRoleActions, ExtraActions } from './snmpdevicecfg.data';
 
-declare var _:any;
+declare var _: any;
 
 @Component({
   selector: 'snmpdevs',
-  providers: [SnmpDeviceService, InfluxServerService, MeasGroupService, MeasFilterService, VarCatalogService,BlockUIService],
+  providers: [SnmpDeviceService, InfluxServerService, MeasGroupService, MeasFilterService, PollerLocationService, VarCatalogService, BlockUIService],
   templateUrl: './snmpdeviceeditor.html',
   styleUrls: ['../css/component-styles.css']
 })
@@ -40,17 +41,17 @@ export class SnmpDeviceCfgComponent {
   @ViewChild('viewModalDelete') public viewModalDelete: GenericModal;
   @ViewChild('viewTestConnectionModal') public viewTestConnectionModal: TestConnectionModal;
   @ViewChild('viewTestFilterModal') public viewTestFilterModal: TestFilterModal;
-  @ViewChild('exportFileModal') public exportFileModal : ExportFileModal;
+  @ViewChild('exportFileModal') public exportFileModal: ExportFileModal;
   @ViewChild('blocker', { read: ViewContainerRef }) container: ViewContainerRef;
 
-  editEnabled : boolean = false;
-  selectedArray : any = [];
+  editEnabled: boolean = false;
+  selectedArray: any = [];
 
-  public isRequesting : boolean;
-  public counterItems : number = null;
+  public isRequesting: boolean;
+  public counterItems: number = null;
   public counterErrors: any = [];
 
-  itemsPerPageOptions : any = ItemsPerPageOptions;
+  itemsPerPageOptions: any = ItemsPerPageOptions;
   //ADDED
   editmode: string; //list , create, modify
   snmpdevs: Array<any>;
@@ -60,13 +61,15 @@ export class SnmpDeviceCfgComponent {
   measfilters: Array<any>;
   measgroups: Array<any>;
   varcatalogs: Array<any>;
+  pollerlocations: Array<any>;
   filteroptions: any;
   selectgroups: IMultiSelectOption[] = [];
   selectfilters: IMultiSelectOption[] = [];
   selectinfluxservers: IMultiSelectOption[] = [];
   selectvarcatalogs: IMultiSelectOption[] = [];
+  selectpollerlocations: IMultiSelectOption[] = [];
   private mySettingsInflux: IMultiSelectSettings = {
-      singleSelect: true,
+    singleSelect: true,
   };
   alertHandler: any = [];
 
@@ -75,17 +78,17 @@ export class SnmpDeviceCfgComponent {
   //Initialization data, rows, colunms for Table
   private data: Array<any> = [];
   public rows: Array<any> = [];
-  public defaultConfig : any = SnmpDeviceCfgComponentConfig;
-  public tableRole : any = TableRole;
+  public defaultConfig: any = SnmpDeviceCfgComponentConfig;
+  public tableRole: any = TableRole;
   public overrideRoleActions: any = OverrideRoleActions;
-  public tableAvailableActions : any;
+  public tableAvailableActions: any;
   public page: number = 1;
   public itemsPerPage: number = 20;
   public maxSize: number = 5;
   public numPages: number = 1;
   public length: number = 0;
   private builder;
-  private oldID : string;
+  private oldID: string;
   //Set config
   public config: any = {
     paging: true,
@@ -98,7 +101,16 @@ export class SnmpDeviceCfgComponent {
   selectedVars: Array<any> = [];
   public extraActions: any = ExtraActions;
 
-  constructor(public snmpDeviceService: SnmpDeviceService, public varCatalogService: VarCatalogService, public influxserverDeviceService: InfluxServerService, public measgroupsDeviceService: MeasGroupService, public measfiltersDeviceService: MeasFilterService,  public exportServiceCfg : ExportServiceCfg, builder: FormBuilder, private _blocker: BlockUIService) {
+  constructor(
+    public snmpDeviceService: SnmpDeviceService,
+    public varCatalogService: VarCatalogService,
+    public influxserverDeviceService: InfluxServerService,
+    public measgroupsDeviceService: MeasGroupService,
+    public measfiltersDeviceService: MeasFilterService,
+    public pollerlocationsService: PollerLocationService,
+    public exportServiceCfg: ExportServiceCfg,
+    builder: FormBuilder, private _blocker: BlockUIService
+  ) {
     this.editmode = 'list';
     this.reloadData();
     this.builder = builder;
@@ -107,15 +119,15 @@ export class SnmpDeviceCfgComponent {
   enableEdit() {
     let obsArray = [];
     //obsArray.push(this.getMeasFiltersforDevices);
-    Observable.forkJoin([this.measgroupsDeviceService.getMeasGroup(null),this.measfiltersDeviceService.getMeasFilter(null)])
-              .subscribe(
-                data => {
-                  this.tableAvailableActions = new AvailableTableActions('snmpdevicecfg',[this.createMultiselectArray(data[0]),this.createMultiselectArray(data[1])]).availableOptions;
-                },
-                err => console.log(err),
-                () => console.log()
-              );
-    }
+    Observable.forkJoin([this.measgroupsDeviceService.getMeasGroup(null), this.measfiltersDeviceService.getMeasFilter(null)])
+      .subscribe(
+        data => {
+          this.tableAvailableActions = new AvailableTableActions('snmpdevicecfg', [this.createMultiselectArray(data[0]), this.createMultiselectArray(data[1])]).availableOptions;
+        },
+        err => console.log(err),
+        () => console.log()
+      );
+  }
 
   createStaticForm() {
     this.snmpdevForm = this.builder.group({
@@ -127,17 +139,18 @@ export class SnmpDeviceCfgComponent {
       Active: [this.snmpdevForm ? this.snmpdevForm.value.Active : 'true', Validators.required],
       SnmpVersion: [this.snmpdevForm ? this.snmpdevForm.value.SnmpVersion : '2c', Validators.required],
       DisableBulk: [this.snmpdevForm ? this.snmpdevForm.value.DisableBulk : 'false'],
-      MaxRepetitions: [this.snmpdevForm ? this.snmpdevForm.value.MaxRepetitions : 50, Validators.compose([Validators.required,ValidationService.uinteger8NotZeroValidator])],
+      MaxRepetitions: [this.snmpdevForm ? this.snmpdevForm.value.MaxRepetitions : 50, Validators.compose([Validators.required, ValidationService.uinteger8NotZeroValidator])],
       Freq: [this.snmpdevForm ? this.snmpdevForm.value.Freq : 60, Validators.compose([Validators.required, ValidationService.uintegerNotZeroValidator])],
       UpdateFltFreq: [this.snmpdevForm ? this.snmpdevForm.value.UpdateFltFreq : 60, Validators.compose([Validators.required, ValidationService.uintegerAndLessOneValidator])],
       ConcurrentGather: [this.snmpdevForm ? this.snmpdevForm.value.ConcurrentGather : 'true', Validators.required],
-      OutDB: [this.snmpdevForm ? this.snmpdevForm.value.OutDB :  '', Validators.required],
+      Location: [this.snmpdevForm ? this.snmpdevForm.value.Location : '', Validators.required],
+      OutDB: [this.snmpdevForm ? this.snmpdevForm.value.OutDB : '', Validators.required],
       LogLevel: [this.snmpdevForm ? this.snmpdevForm.value.LogLevel : 'info', Validators.required],
       SnmpDebug: [this.snmpdevForm ? this.snmpdevForm.value.SnmpDebug : 'false', Validators.required],
       DeviceTagName: [this.snmpdevForm ? this.snmpdevForm.value.DeviceTagName : '', Validators.required],
       DeviceTagValue: [this.snmpdevForm ? this.snmpdevForm.value.DeviceTagValue : 'id'],
-      ExtraTags: [this.snmpdevForm ? (this.snmpdevForm.value.ExtraTags ? this.snmpdevForm.value.ExtraTags : "" ) : "" , Validators.compose([ ValidationService.extraTags])],
-      SystemOIDs: [this.snmpdevForm ? (this.snmpdevForm.value.SystemOIDs ? this.snmpdevForm.value.SystemOIDs : "" ) : "" , Validators.compose([ValidationService.noWhiteSpaces, ValidationService.extraTags])],
+      ExtraTags: [this.snmpdevForm ? (this.snmpdevForm.value.ExtraTags ? this.snmpdevForm.value.ExtraTags : "") : "", Validators.compose([ValidationService.noWhiteSpaces, ValidationService.extraTags])],
+      SystemOIDs: [this.snmpdevForm ? (this.snmpdevForm.value.SystemOIDs ? this.snmpdevForm.value.SystemOIDs : "") : "", Validators.compose([ValidationService.noWhiteSpaces, ValidationService.extraTags])],
       DeviceVars: [this.snmpdevForm ? this.snmpdevForm.value.DeviceVars : null],
       MeasurementGroups: [this.snmpdevForm ? this.snmpdevForm.value.MeasurementGroups : null],
       MeasFilters: [this.snmpdevForm ? this.snmpdevForm.value.MeasFilters : null],
@@ -145,12 +158,12 @@ export class SnmpDeviceCfgComponent {
     });
   }
 
-  createDynamicForm(fieldsArray: any) : void {
+  createDynamicForm(fieldsArray: any): void {
 
     //Generates the static form:
     //Saves the actual to check later if there are shared values
-    let tmpform : any;
-    if (this.snmpdevForm)  tmpform = this.snmpdevForm.value;
+    let tmpform: any;
+    if (this.snmpdevForm) tmpform = this.snmpdevForm.value;
     this.createStaticForm();
     //Set new values and check if we have to mantain the value!
     for (let entry of fieldsArray) {
@@ -164,45 +177,47 @@ export class SnmpDeviceCfgComponent {
       //Set different controls:
       this.snmpdevForm.addControl(entry.ID, new FormControl(value, entry.Validators));
     }
-}
+  }
 
-  setDynamicFields (field : any, override? : boolean) : void  {
+  setDynamicFields(field: any, override?: boolean): void {
     //Saves on the array all values to push into formGroup
-    let controlArray : Array<any> = [];
+    let controlArray: Array<any> = [];
 
     switch (field) {
       case 'AuthPriv':
-      controlArray.push({'ID': 'V3ContextEngineID', 'defVal' : '', 'Validators' : Validators.nullValidator });
-      controlArray.push({'ID': 'V3ContextName', 'defVal' : '', 'Validators' : Validators.nullValidator });
-      controlArray.push({'ID': 'V3PrivPass', 'defVal' : '', 'Validators' : Validators.required });
-      controlArray.push({'ID': 'V3PrivProt', 'defVal' : '', 'Validators' : Validators.required });
+        controlArray.push({ 'ID': 'V3ContextEngineID', 'defVal': '', 'Validators': Validators.nullValidator });
+        controlArray.push({ 'ID': 'V3ContextName', 'defVal': '', 'Validators': Validators.nullValidator });
+        controlArray.push({ 'ID': 'V3PrivPass', 'defVal': '', 'Validators': Validators.required });
+        controlArray.push({ 'ID': 'V3PrivProt', 'defVal': '', 'Validators': Validators.required });
       case 'AuthNoPriv':
-      controlArray.push({'ID': 'V3ContextEngineID', 'defVal' : '', 'Validators' : Validators.nullValidator });
-      controlArray.push({'ID': 'V3ContextName', 'defVal' : '', 'Validators' : Validators.nullValidator });
-      controlArray.push({'ID': 'V3AuthPass', 'defVal' : '', 'Validators' : Validators.required });
-      controlArray.push({'ID': 'V3AuthProt', 'defVal' : '', 'Validators' : Validators.required });
+        controlArray.push({ 'ID': 'V3ContextEngineID', 'defVal': '', 'Validators': Validators.nullValidator });
+        controlArray.push({ 'ID': 'V3ContextName', 'defVal': '', 'Validators': Validators.nullValidator });
+        controlArray.push({ 'ID': 'V3AuthPass', 'defVal': '', 'Validators': Validators.required });
+        controlArray.push({ 'ID': 'V3AuthProt', 'defVal': '', 'Validators': Validators.required });
       case 'NoAuthNoPriv':
-      controlArray.push({'ID': 'V3ContextEngineID', 'defVal' : '', 'Validators' : Validators.nullValidator });
-      controlArray.push({'ID': 'V3ContextName', 'defVal' : '', 'Validators' : Validators.nullValidator });
-      controlArray.push({'ID': 'V3SecLevel', 'defVal' : field, 'Validators' : Validators.required });
-      controlArray.push({'ID': 'V3AuthUser', 'defVal' : '', 'Validators' : Validators.required });
-      break;
+        controlArray.push({ 'ID': 'V3ContextEngineID', 'defVal': '', 'Validators': Validators.nullValidator });
+        controlArray.push({ 'ID': 'V3ContextName', 'defVal': '', 'Validators': Validators.nullValidator });
+        controlArray.push({ 'ID': 'V3SecLevel', 'defVal': field, 'Validators': Validators.required });
+        controlArray.push({ 'ID': 'V3AuthUser', 'defVal': '', 'Validators': Validators.required });
+        break;
       case '3':
-      controlArray.push({'ID': 'V3ContextEngineID', 'defVal' : '', 'Validators' : Validators.nullValidator });
-      controlArray.push({'ID': 'V3ContextName', 'defVal' : '', 'Validators' : Validators.nullValidator });
-      controlArray.push({'ID': 'V3SecLevel', 'defVal' : 'NoAuthNoPriv', 'Validators' : Validators.required });
-      controlArray.push({'ID': 'V3AuthUser', 'defVal' : '', 'Validators' : Validators.required });
-      break;
+        controlArray.push({ 'ID': 'V3ContextEngineID', 'defVal': '', 'Validators': Validators.nullValidator });
+        controlArray.push({ 'ID': 'V3ContextName', 'defVal': '', 'Validators': Validators.nullValidator });
+        controlArray.push({ 'ID': 'V3SecLevel', 'defVal': 'NoAuthNoPriv', 'Validators': Validators.required });
+        controlArray.push({ 'ID': 'V3AuthUser', 'defVal': '', 'Validators': Validators.required });
+        break;
       case '1':
-      controlArray.push({'ID': 'Community', 'defVal' : 'public', 'Validators' : Validators.required });
-      break;
+        controlArray.push({ 'ID': 'Community', 'defVal': 'public', 'Validators': Validators.required });
+        break;
       case '2c':
-      controlArray.push({'ID': 'Community', 'defVal' : 'public', 'Validators' : Validators.required });
-      break;
+        controlArray.push({ 'ID': 'Community', 'defVal': 'public', 'Validators': Validators.required });
+        break;
+      case 'Location':
+        controlArray.push({ 'ID': 'Location', 'defVal': '', 'Validators': Validators.required });
       default: //Gauge32
-      controlArray.push({'ID': 'SnmpVersion', 'defVal' : '2c', 'Validators' : Validators.required });
-      controlArray.push({'ID': 'Community', 'defVal' : 'public', 'Validators' : Validators.required });
-      break;
+        controlArray.push({ 'ID': 'SnmpVersion', 'defVal': '2c', 'Validators': Validators.required });
+        controlArray.push({ 'ID': 'Community', 'defVal': 'public', 'Validators': Validators.required });
+        break;
     }
     //Reload the formGroup with new values saved on controlArray
     this.createDynamicForm(controlArray);
@@ -215,61 +230,61 @@ export class SnmpDeviceCfgComponent {
     // now it's a simple subscription to the observable
     this.snmpDeviceService.getDevices(null)
       .subscribe(
-      data => {
-        this.isRequesting = false;
-        this.snmpdevs = data;
-        this.data = data;
-      },
-      err => console.error(err),
-      () => console.log('DONE')
+        data => {
+          this.isRequesting = false;
+          this.snmpdevs = data;
+          this.data = data;
+        },
+        err => console.error(err),
+        () => console.log('DONE')
       );
   }
 
-  applyAction(test : any, data? : Array<any>) : void {
+  applyAction(test: any, data?: Array<any>): void {
     this.selectedArray = data || [];
-    switch(test.action) {
-       case "RemoveAllSelected": {
-          this.removeAllSelectedItems(this.selectedArray);
-          break;
-       }
-       case "ChangeProperty": {
-          this.updateAllSelectedItems(this.selectedArray,test.field,test.value)
-          break;
-       }
-       case "AppendProperty": {
-         this.updateAllSelectedItems(this.selectedArray,test.field,test.value,true);
-       }
-       default: {
-          break;
-       }
+    switch (test.action) {
+      case "RemoveAllSelected": {
+        this.removeAllSelectedItems(this.selectedArray);
+        break;
+      }
+      case "ChangeProperty": {
+        this.updateAllSelectedItems(this.selectedArray, test.field, test.value)
+        break;
+      }
+      case "AppendProperty": {
+        this.updateAllSelectedItems(this.selectedArray, test.field, test.value, true);
+      }
+      default: {
+        break;
+      }
     }
   }
 
-  customActions(action : any) {
+  customActions(action: any) {
     switch (action.option) {
-      case 'export' : 
+      case 'export':
         this.exportItem(action.event);
-      break;
-      case 'new' :
+        break;
+      case 'new':
         this.newDevice()
       case 'view':
         this.viewItem(action.event);
-      break;
+        break;
       case 'edit':
         this.editDevice(action.event);
-      break;
+        break;
       case 'remove':
         this.removeItem(action.event);
-      break;
+        break;
       case 'editenabled':
         this.enableEdit();
-      break;
+        break;
       case 'test-connection':
         this.showTestConnectionModal(action.event);
-      break;
+        break;
       case 'tableaction':
         this.applyAction(action.event, action.data);
-      break;
+        break;
     }
   }
 
@@ -277,44 +292,44 @@ export class SnmpDeviceCfgComponent {
     console.log(data);
     switch (data.action) {
       case 'changeruntime':
-        this.listChangeRTSnmpDev(data.row,data.property)
+        this.listChangeRTSnmpDev(data.row, data.property)
         break;
       case 'updateruntime':
         this.listChangeRTSnmpDev(data.row)
         break;
       case 'deletefull':
-        this.deleteSnmpDevice(data.row.ID,'full',false);
-      break;
+        this.deleteSnmpDevice(data.row.ID, 'full', false);
+        break;
       default:
-      break;
+        break;
     }
   }
 
-  listChangeRTSnmpDev(data,property?) {
+  listChangeRTSnmpDev(data, property?) {
     console.log(property)
     if (property) {
-        if (data[property] === false) {
-          this._blocker.start(this.container, "Adding new device on runtime. Please wait...");
-          this.snmpDeviceService.addDevice(data,'runtime')
+      if (data[property] === false) {
+        this._blocker.start(this.container, "Adding new device on runtime. Please wait...");
+        this.snmpDeviceService.addDevice(data, 'runtime')
           .subscribe(data => { this.editmode = "list"; this._blocker.stop(); this.reloadData() },
-          err => {console.error(err),this._blocker.stop();},
-          () => { console.log("DONE") }
+            err => { console.error(err), this._blocker.stop(); },
+            () => { console.log("DONE") }
           );
-      
-        } else if (data[property] === true) {
-          this._blocker.start(this.container, "Removing new device on runtime. Please wait...");
-          this.snmpDeviceService.deleteDevice(data.ID,'runtime')
+
+      } else if (data[property] === true) {
+        this._blocker.start(this.container, "Removing new device on runtime. Please wait...");
+        this.snmpDeviceService.deleteDevice(data.ID, 'runtime')
           .subscribe(data => { this.editmode = "list"; this._blocker.stop(); this.reloadData() },
-          err => {console.error(err),this._blocker.stop();},
-          () => { console.log("DONE") }
-          );  
-        } 
-      } else {
-        this._blocker.start(this.container, "Updating new device on runtime. Please wait...");
-        this.snmpDeviceService.editDevice(data,data.ID,'runtime')
+            err => { console.error(err), this._blocker.stop(); },
+            () => { console.log("DONE") }
+          );
+      }
+    } else {
+      this._blocker.start(this.container, "Updating new device on runtime. Please wait...");
+      this.snmpDeviceService.editDevice(data, data.ID, 'runtime')
         .subscribe(data => { this.editmode = "list"; this._blocker.stop(); this.reloadData() },
-          err => {console.error(err),this._blocker.stop();},
-        () => { console.log("DONE") }
+          err => { console.error(err), this._blocker.stop(); },
+          () => { console.log("DONE") }
         );
     }
   }
@@ -325,7 +340,7 @@ export class SnmpDeviceCfgComponent {
     this.viewModal.parseObject(id);
   }
 
-  exportItem(item : any) : void {
+  exportItem(item: any): void {
     this.exportFileModal.initExportModal(item);
   }
 
@@ -334,9 +349,9 @@ export class SnmpDeviceCfgComponent {
     this.counterItems = 0;
     this.isRequesting = true;
     for (let i in myArray) {
-      console.log("Removing ",myArray[i].ID)
-      this.deleteSnmpDevice(myArray[i].ID,false,true);
-      obsArray.push(this.deleteSnmpDevice(myArray[i].ID,false,true));
+      console.log("Removing ", myArray[i].ID)
+      this.deleteSnmpDevice(myArray[i].ID, false, true);
+      obsArray.push(this.deleteSnmpDevice(myArray[i].ID, false, true));
     }
     this.genericForkJoin(obsArray);
   }
@@ -346,28 +361,28 @@ export class SnmpDeviceCfgComponent {
     console.log('remove', id);
     this.snmpDeviceService.checkOnDeleteSNMPDevice(id)
       .subscribe(
-      data => {
-        console.log(data);
-        let temp = data;
-        this.viewModalDelete.parseObject(temp)
-      },
-      err => console.error(err),
-      () => { }
+        data => {
+          console.log(data);
+          let temp = data;
+          this.viewModalDelete.parseObject(temp)
+        },
+        err => console.error(err),
+        () => { }
       );
   }
 
   onChangevarsArray(id) {
     //Create the array with ID:
-    let varArrayID = this.varsArray.map( x => {return x['ID']})
-    let delEntries = _.differenceWith(varArrayID,id,_.isEqual);
-    let newEntries = _.differenceWith(id,varArrayID,_.isEqual);
+    let varArrayID = this.varsArray.map(x => { return x['ID'] })
+    let delEntries = _.differenceWith(varArrayID, id, _.isEqual);
+    let newEntries = _.differenceWith(id, varArrayID, _.isEqual);
     //Remove detected delEntries
-    _.remove(this.varsArray, function(n) {
+    _.remove(this.varsArray, function (n) {
       return delEntries.indexOf(n['ID']) != -1;
     });
     //Add new entries
     for (let a of newEntries) {
-      this.varsArray.push ({'ID': a, 'value': ''});
+      this.varsArray.push({ 'ID': a, 'value': '' });
     }
   }
 
@@ -382,6 +397,7 @@ export class SnmpDeviceCfgComponent {
     this.getMeasGroupsforDevices();
     this.getMeasFiltersforDevices();
     this.getVarCatalogsforDevices();
+    this.getLocationsforDevices();
     this.editmode = "create";
   }
 
@@ -392,6 +408,7 @@ export class SnmpDeviceCfgComponent {
     this.getMeasGroupsforDevices();
     this.getMeasFiltersforDevices();
     this.getVarCatalogsforDevices();
+    this.getLocationsforDevices();
 
     this.snmpDeviceService.getDevicesById(id)
       .subscribe(data => {
@@ -410,35 +427,35 @@ export class SnmpDeviceCfgComponent {
         this.setDynamicFields(row.SnmpVersion === '3' ? row.V3SecLevel : row.SnmpVersion);
         this.editmode = "modify"
       },
-      err => console.error(err),
-    );
+        err => console.error(err),
+      );
   }
 
   deleteSnmpDevice(id, mode, recursive?) {
     if (!recursive) {
       if (mode) {
-        let r = confirm("Remove from runtime and configuration device "+id+". Proceed?");
-         if (r === true) {
+        let r = confirm("Remove from runtime and configuration device " + id + ". Proceed?");
+        if (r === true) {
           this._blocker.start(this.container, "Removing device from runtime and configuration. Please wait...");
-          this.snmpDeviceService.deleteDevice(id,mode)
-          .subscribe(data => { this._blocker.stop() },
-            err => {console.error(err); this._blocker.stop()},
-            () => {this.viewModalDelete.hide(); this.editmode = "list"; this.reloadData()}
+          this.snmpDeviceService.deleteDevice(id, mode)
+            .subscribe(data => { this._blocker.stop() },
+              err => { console.error(err); this._blocker.stop() },
+              () => { this.viewModalDelete.hide(); this.editmode = "list"; this.reloadData() }
             );
-         }
-         return
-        } 
-      this.snmpDeviceService.deleteDevice(id,mode)
-      .subscribe(data => { },
-        err => console.error(err),
-        () => {this.viewModalDelete.hide(); this.editmode = "list"; this.reloadData()}
+        }
+        return
+      }
+      this.snmpDeviceService.deleteDevice(id, mode)
+        .subscribe(data => { },
+          err => console.error(err),
+          () => { this.viewModalDelete.hide(); this.editmode = "list"; this.reloadData() }
         );
     } else {
-      return this.snmpDeviceService.deleteDevice(id, mode,true)
-      .do(
-        (test) =>  { this.counterItems++},
-        (err) => { this.counterErrors.push({'ID': id, 'error' : err})}
-      );
+      return this.snmpDeviceService.deleteDevice(id, mode, true)
+        .do(
+          (test) => { this.counterItems++ },
+          (err) => { this.counterErrors.push({ 'ID': id, 'error': err }) }
+        );
     }
   }
 
@@ -448,100 +465,100 @@ export class SnmpDeviceCfgComponent {
     this.editmode = "list";
   }
 
-  saveSnmpDev(data,online?) {
-    let varCatalogsID : Array<any> = [];
-      for (let i of this.varsArray) {
-        varCatalogsID.push(i['ID']+(i['value'] ? '='+i['value'] : ''));
-      }
-      data['DeviceVars']=varCatalogsID;
-      if (online) {
-        this._blocker.start(this.container, "Adding new device on runtime. Please wait...");
-      }
-      this.snmpDeviceService.addDevice(data,online)
-        .subscribe(data => { this._blocker.stop(); console.log(data) },
-        err =>  { console.error(err); this._blocker.stop(); },
-        () => { this.editmode = "list"; this.reloadData() }
-        );
-   }
-
-updateAllSelectedItems(mySelectedArray,field,value, append?) {
-  let obsArray = [];
-  this.counterItems = 0;
-  this.isRequesting = true;
-  if (!append)
-  for (let component of mySelectedArray) {
-    component[field] = value;
-    obsArray.push(this.updateSnmpDev(true,component));
-  } else {
-    let tmpArray = [];
-    if(!Array.isArray(value)) value = value.split(',');
-    console.log(value);
-    for (let component of mySelectedArray) {
-      console.log(value);
-      //check if there is some new object to append
-      let newEntries = _.differenceWith(value,component[field],_.isEqual);
-      tmpArray = newEntries.concat(component[field])
-      console.log(tmpArray);
-      component[field] = tmpArray;
-      obsArray.push(this.updateSnmpDev(true,component));
+  saveSnmpDev(data, online?) {
+    let varCatalogsID: Array<any> = [];
+    for (let i of this.varsArray) {
+      varCatalogsID.push(i['ID'] + (i['value'] ? '=' + i['value'] : ''));
     }
+    data['DeviceVars'] = varCatalogsID;
+    if (online) {
+      this._blocker.start(this.container, "Adding new device on runtime. Please wait...");
+    }
+    this.snmpDeviceService.addDevice(data, online)
+      .subscribe(data => { this._blocker.stop(); console.log(data) },
+        err => { console.error(err); this._blocker.stop(); },
+        () => { this.editmode = "list"; this.reloadData() }
+      );
   }
-  this.genericForkJoin(obsArray);
-  //Make sync calls and wait the result
-  this.counterErrors = [];
-}
 
-  updateSnmpDev(recursive,component,mode?) {
-    if(!recursive) {
+  updateAllSelectedItems(mySelectedArray, field, value, append?) {
+    let obsArray = [];
+    this.counterItems = 0;
+    this.isRequesting = true;
+    if (!append)
+      for (let component of mySelectedArray) {
+        component[field] = value;
+        obsArray.push(this.updateSnmpDev(true, component));
+      } else {
+      let tmpArray = [];
+      if (!Array.isArray(value)) value = value.split(',');
+      console.log(value);
+      for (let component of mySelectedArray) {
+        console.log(value);
+        //check if there is some new object to append
+        let newEntries = _.differenceWith(value, component[field], _.isEqual);
+        tmpArray = newEntries.concat(component[field])
+        console.log(tmpArray);
+        component[field] = tmpArray;
+        obsArray.push(this.updateSnmpDev(true, component));
+      }
+    }
+    this.genericForkJoin(obsArray);
+    //Make sync calls and wait the result
+    this.counterErrors = [];
+  }
+
+  updateSnmpDev(recursive, component, mode?) {
+    if (!recursive) {
       var r = true;
       if (component.ID != this.oldID) {
         r = confirm("Changing Device ID from " + this.oldID + " to " + component.ID + ". Proceed?");
       }
       if (r == true) {
-        let varCatalogsID : Array<any> = [];
+        let varCatalogsID: Array<any> = [];
         for (let i of this.varsArray) {
-          varCatalogsID.push(i['ID']+(i['value'] ? '='+i['value'] : ''));
+          varCatalogsID.push(i['ID'] + (i['value'] ? '=' + i['value'] : ''));
         }
-        if(mode) {
+        if (mode) {
           this._blocker.start(this.container, "Updating new device on runtime. Please wait...");
         }
-        component['DeviceVars']=varCatalogsID;
-        this.snmpDeviceService.editDevice(component, this.oldID,mode)
+        component['DeviceVars'] = varCatalogsID;
+        this.snmpDeviceService.editDevice(component, this.oldID, mode)
           .subscribe(data => { this._blocker.stop(); this.editmode = "list"; this.reloadData() },
-          err =>  { console.error(err); this._blocker.stop(); },
-          () => { }
+            err => { console.error(err); this._blocker.stop(); },
+            () => { }
           );
-      }      
+      }
     }
     else {
-      return this.snmpDeviceService.editDevice(component, component.ID,mode, true)
-      .do(
-        (test) =>  { this.counterItems++ },
-        (err) => { this.counterErrors.push({'ID': component['ID'], 'error' : err})}
-      )
-      .catch((err) => {
-        return Observable.of({'ID': component.ID , 'error': err['_body']})
-      })
+      return this.snmpDeviceService.editDevice(component, component.ID, mode, true)
+        .do(
+          (test) => { this.counterItems++ },
+          (err) => { this.counterErrors.push({ 'ID': component['ID'], 'error': err }) }
+        )
+        .catch((err) => {
+          return Observable.of({ 'ID': component.ID, 'error': err['_body'] })
+        })
     }
   }
 
   genericForkJoin(obsArray: any) {
     Observable.forkJoin(obsArray)
-              .subscribe(
-                data => {
-                  this.selectedArray = [];
-                  this.reloadData()
-                },
-                err => console.error(err),
-              );
+      .subscribe(
+        data => {
+          this.selectedArray = [];
+          this.reloadData()
+        },
+        err => console.error(err),
+      );
   }
 
   showTestConnectionModal(data) {
-      this.viewTestConnectionModal.show(data);
+    this.viewTestConnectionModal.show(data);
   }
 
-  showFilterModal(){
-    if(this.snmpdevForm.valid) {
+  showFilterModal() {
+    if (this.snmpdevForm.valid) {
       this.viewTestFilterModal.newCustomFilter(this.snmpdevForm.value);
     }
   }
@@ -549,33 +566,33 @@ updateAllSelectedItems(mySelectedArray,field,value, append?) {
   getMeasGroupsforDevices() {
     this.measgroupsDeviceService.getMeasGroup(null)
       .subscribe(
-      data => {
-        this.measgroups = data
-        this.selectgroups = [];
-        this.selectgroups = this.createMultiselectArray(data)
-      },
-      err => console.error(err),
-      () => console.log('DONE')
+        data => {
+          this.measgroups = data
+          this.selectgroups = [];
+          this.selectgroups = this.createMultiselectArray(data)
+        },
+        err => console.error(err),
+        () => console.log('DONE')
       );
   }
 
   getInfluxServersforDevices() {
     this.influxserverDeviceService.getInfluxServer(null)
       .subscribe(
-      data => {
-      //  this.influxservers = data;
-        this.selectinfluxservers = [];
-        for (let entry of data) {
-          console.log(entry)
-          this.selectinfluxservers.push({ 'id': entry.ID, 'name': entry.ID });
-        }
-      },
-      err => console.error(err),
-      () => console.log('DONE')
+        data => {
+          //  this.influxservers = data;
+          this.selectinfluxservers = [];
+          for (let entry of data) {
+            console.log(entry)
+            this.selectinfluxservers.push({ 'id': entry.ID, 'name': entry.ID });
+          }
+        },
+        err => console.error(err),
+        () => console.log('DONE')
       );
   }
 
-  createMultiselectArray(tempArray) : any {
+  createMultiselectArray(tempArray): any {
     let myarray = [];
     for (let entry of tempArray) {
       myarray.push({ 'id': entry.ID, 'name': entry.ID });
@@ -586,26 +603,39 @@ updateAllSelectedItems(mySelectedArray,field,value, append?) {
   getMeasFiltersforDevices() {
     return this.measfiltersDeviceService.getMeasFilter(null)
       .subscribe(
-      data => {
-        this.measfilters = data
-        this.selectfilters = [];
-        this.selectfilters =  this.createMultiselectArray(data);
-      },
-      err => console.error(err),
-      () => console.log('DONE')
+        data => {
+          this.measfilters = data
+          this.selectfilters = [];
+          this.selectfilters = this.createMultiselectArray(data);
+        },
+        err => console.error(err),
+        () => console.log('DONE')
       );
   }
 
   getVarCatalogsforDevices() {
     return this.varCatalogService.getVarCatalog(null)
       .subscribe(
-      data => {
-        this.varcatalogs = data
-        this.selectvarcatalogs = [];
-        this.selectvarcatalogs =  this.createMultiselectArray(data);
-      },
-      err => console.error(err),
-      () => console.log('DONE')
+        data => {
+          this.varcatalogs = data
+          this.selectvarcatalogs = [];
+          this.selectvarcatalogs = this.createMultiselectArray(data);
+        },
+        err => console.error(err),
+        () => console.log('DONE')
+      );
+  }
+
+  getLocationsforDevices() {
+    this.pollerlocationsService.getPollerLocation(null)
+      .subscribe(
+        data => {
+          this.varcatalogs = data
+          this.selectpollerlocations = [];
+          this.selectpollerlocations = this.createMultiselectArray(data);
+        },
+        err => console.error(err),
+        () => console.log('DONE')
       );
   }
 }

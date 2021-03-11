@@ -138,45 +138,52 @@ func (dbc *DatabaseCfg) InitDB(cfg *GeneralConfig) {
 		log.Fatalf("Fail to sync database PollerLocationCfg: %v\n", err)
 	}
 
-	//Look if PollerLocation is empty
-	var exist bool
-	exist, err = dbc.x.Get(new(PollerLocationCfg))
-	if exist == false {
-		//Create default Location
+	//Lookup if PollerLocation if got Instance_ID else create one
+	var locationsFound []*PollerLocationCfg
+	if err = dbc.x.Where("Instance_ID = '" + cfg.InstanceID + "'").Find(&locationsFound); err != nil {
+		log.Fatalf("There were an error when looking for %s in PollerLocationCfg. Error: %+v", cfg.InstanceID, err)
+	} else {
+		if len(locationsFound) == 0 {
+			//Create Location
 
-		//Get Hostname
-		hostname, err := os.Hostname()
-		if err != nil {
-			hostname = cfg.InstanceID
-		}
-		//Get external IP
-		ip := getExternalIp()
+			//Get Hostname
+			hostname, err := os.Hostname()
+			if err != nil {
+				hostname = cfg.InstanceID
+			}
+			//Get external IP
+			ip := getExternalIp()
+			//Get Location or assign InstanceID
+			loc := cfg.Location
+			if len(loc) == 0 {
+				loc = cfg.InstanceID
+			}
 
-		//Get Location or assign InstanceID
-		loc := cfg.Location
-		if len(loc) == 0 {
-			loc = cfg.InstanceID
-		}
+			var location = PollerLocationCfg{
+				ID:          hostname,
+				Location:    loc,
+				Instance_ID: cfg.InstanceID,
+				Active:      true,
+				Hostname:    hostname,
+				IP:          ip.String(),
+				Description: cfg.Description,
+			}
 
-		var location = PollerLocationCfg{
-			ID:          hostname,
-			Location:    loc,
-			Instance_ID: cfg.InstanceID,
-			Active:      true,
-			Hostname:    hostname,
-			IP:          ip.String(),
-			Description: cfg.Description,
-		}
-
-		var affected int64
-		session := dbc.x.NewSession()
-		defer session.Close()
-		affected, err = session.Insert(&location)
-		if err != nil {
-			log.Fatalf("There were an error when creating default PollerLocationCfg Error: %+v", err)
-			session.Rollback()
+			var affected int64
+			session := dbc.x.NewSession()
+			defer session.Close()
+			affected, err = session.Insert(&location)
+			if err != nil {
+				log.Fatalf("There were an error when creating default PollerLocationCfg Error: %+v", err)
+				session.Rollback()
+			} else {
+				log.Infof("PollerLocationCfg created succefully. %+v", affected)
+			}
 		} else {
-			log.Infof("PollerLocationCfg created succefully. %+v", affected)
+			log.Debug("Instance_ID founded on PollerLocationCfg:")
+			for _, instance := range locationsFound {
+				log.Debugf("--> %v\n", instance)
+			}
 		}
 	}
 }

@@ -630,9 +630,11 @@ export class SnmpDeviceCfgComponent {
     this.pollerlocationsService.getPollerLocation(null)
       .subscribe(
         data => {
-          this.varcatalogs = data
+          this.pollerlocations = data
           this.selectpollerlocations = [];
-          this.selectpollerlocations = this.createMultiselectArray(data);
+          for (let entry of data) {
+            this.selectpollerlocations.push({ 'id': entry.ID, 'name': entry.ID + ' - ' + entry.Instance_ID + ' - ' + entry.Location + '(' + entry.IP + ')'});
+          }
         },
         err => console.error(err),
         () => console.log('DONE')

@@ -160,7 +160,11 @@ func (dbc *DatabaseCfg) InitDB(cfg *GeneralConfig) {
 			}
 
 			var location = PollerLocationCfg{
+<<<<<<< HEAD
 				ID:          cfg.InstanceID,
+=======
+				ID:          hostname,
+>>>>>>> 495ecc46207155ca2d24de5bb4965f3f2a8cf672
 				Location:    loc,
 				Instance_ID: cfg.InstanceID,
 				Active:      true,
@@ -180,6 +184,7 @@ func (dbc *DatabaseCfg) InitDB(cfg *GeneralConfig) {
 				log.Infof("PollerLocationCfg created succefully. %+v", affected)
 			}
 		} else {
+<<<<<<< HEAD
 			log.Debug("Instance_ID founded on PollerLocationCfg. Checking if any param was changed")
 			for _, instance := range locationsFound {
 				log.Debugf("--> %+v\n", instance)
@@ -229,6 +234,11 @@ func (dbc *DatabaseCfg) InitDB(cfg *GeneralConfig) {
 				} else {
 					log.Infof("PollerLocationCfg updated succefully. %+v", affected)
 				}
+=======
+			log.Debug("Instance_ID founded on PollerLocationCfg:")
+			for _, instance := range locationsFound {
+				log.Debugf("--> %v\n", instance)
+>>>>>>> 495ecc46207155ca2d24de5bb4965f3f2a8cf672
 			}
 		}
 	}

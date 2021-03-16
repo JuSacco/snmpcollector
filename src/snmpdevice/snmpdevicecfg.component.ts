@@ -633,7 +633,11 @@ export class SnmpDeviceCfgComponent {
           this.pollerlocations = data
           this.selectpollerlocations = [];
           for (let entry of data) {
+<<<<<<< HEAD
             this.selectpollerlocations.push({ 'id': entry.ID, 'name': entry.Instance_ID + ' - ' + entry.Location + ' (' + entry.IP + ')'});
+=======
+            this.selectpollerlocations.push({ 'id': entry.ID, 'name': entry.ID + ' - ' + entry.Instance_ID + ' - ' + entry.Location + '(' + entry.IP + ')'});
+>>>>>>> 495ecc46207155ca2d24de5bb4965f3f2a8cf672
           }
         },
         err => console.error(err),

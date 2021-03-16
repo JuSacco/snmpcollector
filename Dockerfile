@@ -62,6 +62,20 @@ COPY --from=1 /usr/src/app/public ./public
 
 EXPOSE 8090
 
-USER snmpcol
+# <Supervisord> 
+RUN apk add --no-cache --update supervisor 
+COPY supervisord/config /etc/supervisor/conf.d
+COPY supervisord/supervisord.conf /etc/.
 
-ENTRYPOINT [ "./bin/snmpcollector" ]
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+RUN chmod +x /usr/bin/supervisord
+RUN chmod +x /usr/bin/supervisorctl
+RUN chmod -R +rwx /var/log/
+# </Supervisord>
+
+#USER snmpcol
+#Note: using another user that is not root gives problems with supervisord 
+#TODO: Fix user permissons 
+
+ENTRYPOINT [ "/entrypoint.sh" ]
